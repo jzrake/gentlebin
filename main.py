@@ -3,16 +3,8 @@ from pycparser import c_generator
 from pycparser.c_ast import *
 
 
-def to_c_bin_op(node):
-    if isinstance(node, ast.Add):
-        return "+"
-    if isinstance(node, ast.Sub):
-        return "-"
-    if isinstance(node, ast.Mult):
-        return "*"
-    if isinstance(node, ast.Div):
-        return "/"
-    raise ValueError(f"unsupported binary operation: {node}")
+class UnsupportedConstruct(Exception):
+    pass
 
 
 def to_c_identifier_type(t):
@@ -39,7 +31,39 @@ def to_c_identifier_type(t):
     raise ValueError(f"unsupported type annotation: {t}")
 
 
+def to_c_range_args(node):
+    """
+    Return C AST nodes for start, stop, stride args of a range call
+    """
+    if not isinstance(node, ast.Call) or node.func.id != "range":
+        raise UnsupportedConstruct(
+            f"must be a range call at line {node.lineno} got {node}"
+        )
+    if len(node.args) == 1:
+        args = ast.Constant("0"), node.args[0], ast.Constant("1")
+    if len(node.args) == 2:
+        args = node.args[0], node.args[1], ast.Constant("1")
+    if len(node.args) == 3:
+        args = node.args[0], node.args[1], node.args[2]
+    return map(to_c_node, args)
+
+
+def to_c_bin_op(node):
+    if isinstance(node, ast.Add):
+        return "+"
+    if isinstance(node, ast.Sub):
+        return "-"
+    if isinstance(node, ast.Mult):
+        return "*"
+    if isinstance(node, ast.Div):
+        return "/"
+    raise ValueError(f"unsupported binary operation: {node} at line {node.lineno}")
+
+
 def to_c_node(node, known_type=None):
+    """
+    Convert a small subset of Python AST to C AST.
+    """
     if node is None:
         return None
     if isinstance(node, ast.Assign):
@@ -153,7 +177,42 @@ def to_c_node(node, known_type=None):
                 )
             ),
         )
-    raise ValueError(f"unsupported construct: {node}")
+    if isinstance(node, ast.For):
+        i0, i1, di = to_c_range_args(node.iter)
+        counter = node.target.id
+        return For(
+            init=DeclList(
+                decls=[
+                    Decl(
+                        name=counter,
+                        quals=None,
+                        align=None,
+                        storage=None,
+                        funcspec=None,
+                        type=TypeDecl(
+                            declname=counter,
+                            quals=None,
+                            align=None,
+                            type=IdentifierType(names=["int"]),
+                        ),
+                        init=i0,
+                        bitsize=None,
+                    )
+                ]
+            ),
+            cond=BinaryOp(
+                op="<",
+                left=ID(name=counter),
+                right=i1,
+            ),
+            next=Assignment(
+                op="+=",
+                lvalue=ID(name=counter),
+                rvalue=di,
+            ),
+            stmt=Compound(block_items=map(to_c_node, node.body)),
+        )
+    raise UnsupportedConstruct(f"unsupported construct: {node} at line {node.lineno}")
 
 
 def emit_c_ast(filename):
@@ -181,6 +240,11 @@ if __name__ == "__main__":
             print(res[0])
             exit()
 
-    generator = c_generator.CGenerator()
-    for c_node in emit_c_ast(filename):
-        print(generator.visit(to_c_node(c_node)))
+    try:
+        generator = c_generator.CGenerator()
+        res = str()
+        for c_node in emit_c_ast(filename):
+            res += generator.visit(to_c_node(c_node))
+        print(res)
+    except UnsupportedConstruct as e:
+        print(f"{e} of {filename}")

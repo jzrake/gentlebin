@@ -6,15 +6,25 @@ def return_12() -> int:
     return 12
 
 
-def do_easy_math(c: int, d: float, e: float) -> tuple[float, int]:
+def simple_arithmetic(c: int, d: float, e: float) -> float:
+    x: float = d + e
+    y: float = d - e + 12.0
+    z: float = sqrt(5.0 + 6.0 + x if c else 7.0)
+    y += 3.0
+    return y
+
+
+def tuples(c: int, d: float, e: float) -> tuple[float, int]:
     x: float = d + e
     y: float = d - e + 12.0
     z: float = sqrt(5.0 + 6.0 + x if c else 7.0)
     m: tuple[float, int] = (z, 2)
-    y += 3.0
     return m
 
 
-def my_kernel(u: View[int], v: View[int]) -> None:
-    z: int = u[0] + v[1]
-    u[0] += z
+def for_loop(c: int) -> int:
+    y: int = 0
+    for a in range(c, c + 10, 2):
+        y += a
+        y -= 2
+    return y
