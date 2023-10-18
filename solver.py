@@ -1,5 +1,5 @@
 from math import sqrt
-from gentle import view
+from gentle import View, Index
 
 
 def return_12() -> int:
@@ -15,6 +15,6 @@ def do_easy_math(c: int, d: float, e: float) -> tuple[float, int]:
     return m
 
 
-def my_kernel(u: view[int], v: view[int]) -> None:
+def my_kernel(u: View[int], v: View[int]) -> None:
     z: int = u[0] + v[1]
     u[0] += z

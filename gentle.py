@@ -1,10 +1,16 @@
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Protocol
 from dataclasses import dataclass
+
 
 T = TypeVar("T", int, float)
 
 
-class view(Generic[T]):
+class Index(Protocol):
+    def jump(self, axis: int, offset: int) -> Index:
+        ...
+
+
+class View(Generic[T], Protocol):
     """
     A generic intended to model abstract data accesses
 
@@ -12,11 +18,8 @@ class view(Generic[T]):
     strides.
     """
 
-    def __init__(self) -> None:
-        self._v: list[T] = list()
-
     def __getitem__(self, i: int) -> T:
-        return self._v[i]
+        ...
 
     def __setitem__(self, i: int, v: T) -> None:
-        pass
+        ...
