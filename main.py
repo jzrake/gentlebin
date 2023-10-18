@@ -16,8 +16,20 @@ def to_c_bin_op(node):
 
 
 def to_c_identifier_type(t):
+    if isinstance(t, ast.Constant) and t.value is None or t is None:
+        return IdentifierType(names=["void"])
     if isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Tuple):
         return IdentifierType(names=["TUPLE"])
+    if isinstance(t, ast.Subscript) and t.value.id == "view":
+        return PtrDecl(
+            quals=None,
+            type=TypeDecl(
+                declname=None,
+                quals=None,
+                align=None,
+                type=to_c_identifier_type(t.slice),
+            ),
+        )
     if isinstance(t, ast.Name):
         match t.id:
             case "int":
@@ -43,6 +55,11 @@ def to_c_node(node, known_type=None):
             to_c_bin_op(node.op),
             to_c_node(node.left),
             to_c_node(node.right),
+        )
+    if isinstance(node, ast.Subscript):
+        return ArrayRef(
+            name=to_c_node(node.value),
+            subscript=to_c_node(node.slice),
         )
     if isinstance(node, ast.Call):
         return FuncCall(
