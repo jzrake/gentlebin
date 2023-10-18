@@ -56,10 +56,17 @@ def to_c_node(node, known_type=None):
             to_c_node(node.orelse),
         )
     if isinstance(node, ast.Tuple):
-        assert known_type is not None
+        if known_type is None:
+            raise ValueError("converting a tuple requires known type")
         return CompoundLiteral(
             type=known_type,
             init=InitList(exprs=map(to_c_node, node.elts)),
+        )
+    if isinstance(node, ast.AugAssign):
+        return Assignment(
+            op=to_c_bin_op(node.op) + "=",
+            lvalue=to_c_node(node.target),
+            rvalue=to_c_node(node.value),
         )
     if isinstance(node, ast.AnnAssign):
         return Decl(
