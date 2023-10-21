@@ -12,7 +12,7 @@ def to_c_identifier_type(t):
         return IdentifierType(names=["void"])
     if isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Tuple):
         return IdentifierType(names=["TUPLE"])
-    if isinstance(t, ast.Subscript) and t.value.id == "View":
+    if isinstance(t, ast.Subscript) and t.value.id == "Array":
         return PtrDecl(
             quals=None,
             type=TypeDecl(
