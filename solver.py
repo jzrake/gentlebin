@@ -28,3 +28,12 @@ def for_loop(c: int) -> int:
         y += a
         y -= 2
     return y
+
+
+def if_statement(c: int) -> int:
+    if c:
+        return 13
+    elif c + 1:
+        return 14
+    else:
+        return 15

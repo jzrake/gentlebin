@@ -66,6 +66,8 @@ def to_c_node(node, known_type=None):
     """
     if node is None:
         return None
+    if type(node) is list:
+        return Compound(block_items=map(to_c_node, node))
     if isinstance(node, ast.Assign):
         raise ValueError("all assignments must be type-annotated")
     if isinstance(node, ast.Return):
@@ -95,6 +97,12 @@ def to_c_node(node, known_type=None):
             to_c_node(node.test),
             to_c_node(node.body),
             to_c_node(node.orelse),
+        )
+    if isinstance(node, ast.If):
+        return If(
+            cond=to_c_node(node.test),
+            iftrue=to_c_node(node.body),
+            iffalse=to_c_node(node.orelse),
         )
     if isinstance(node, ast.Tuple):
         if known_type is None:
