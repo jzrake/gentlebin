@@ -1,5 +1,5 @@
 from math import sqrt
-from gentle import Array, Index
+from gentle import Array
 
 
 def return_12() -> int:

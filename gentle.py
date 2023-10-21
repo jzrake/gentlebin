@@ -5,11 +5,6 @@ from dataclasses import dataclass
 T = TypeVar("T", int, float)
 
 
-class Index(Protocol):
-    def jump(self, axis: int, offset: int) -> Self:
-        ...
-
-
 class Array(Generic[T], Protocol):
     """
     A generic intended to model abstract data accesses

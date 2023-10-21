@@ -36,7 +36,7 @@ def kernel(f):
 
 
 @kernel
-def diff(a: Array, i: int):
+def diff(a: Array[float], i: int):
     """
     Return the centered difference of an array, at the given index
     """
