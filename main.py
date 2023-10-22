@@ -60,170 +60,161 @@ def to_c_bin_op(node):
     raise ValueError(f"unsupported binary operation: {node} at line {node.lineno}")
 
 
-def to_c_node(node, known_type=None):
+def to_c_node(node, known_type=None, force_compound=False):
     """
     Convert a small subset of Python AST to C AST.
     """
-    if node is None:
-        return None
-    if type(node) is list:
-        if len(node) == 1:
-            return to_c_node(node[0])
-        else:
+    match node:
+        case None:
+            return None
+        case [node]:
+            return to_c_node(node)
+        case [*body]:
             return Compound(block_items=map(to_c_node, node))
-    if isinstance(node, ast.Assign):
-        raise ValueError("all assignments must be type-annotated")
-    if isinstance(node, ast.Return):
-        return Return(expr=to_c_node(node.value, known_type=known_type))
-    if isinstance(node, ast.Constant):
-        return Constant(type=None, value=str(node.value))
-    if isinstance(node, ast.Name):
-        return ID(node.id)
-    if isinstance(node, ast.BinOp):
-        return BinaryOp(
-            to_c_bin_op(node.op),
-            to_c_node(node.left),
-            to_c_node(node.right),
-        )
-    if isinstance(node, ast.Subscript):
-        return ArrayRef(
-            name=to_c_node(node.value),
-            subscript=to_c_node(node.slice),
-        )
-    if isinstance(node, ast.Call):
-        return FuncCall(
-            name=ID(name=node.func.id),
-            args=ExprList(exprs=map(to_c_node, node.args)),
-        )
-    if isinstance(node, ast.IfExp):
-        return TernaryOp(
-            to_c_node(node.test),
-            to_c_node(node.body),
-            to_c_node(node.orelse),
-        )
-    if isinstance(node, ast.If):
-        return If(
-            cond=to_c_node(node.test),
-            iftrue=to_c_node(node.body),
-            iffalse=to_c_node(node.orelse),
-        )
-    if isinstance(node, ast.Tuple):
-        if known_type is None:
-            raise ValueError("converting a tuple requires known type")
-        return CompoundLiteral(
-            type=known_type,
-            init=InitList(exprs=map(to_c_node, node.elts)),
-        )
-    if isinstance(node, ast.AugAssign):
-        return Assignment(
-            op=to_c_bin_op(node.op) + "=",
-            lvalue=to_c_node(node.target),
-            rvalue=to_c_node(node.value),
-        )
-    if isinstance(node, ast.AnnAssign):
-        return Decl(
-            name=node.target.id,
-            quals=None,
-            align=None,
-            storage=None,
-            funcspec=None,
-            type=TypeDecl(
-                declname=node.target.id,
+        case ast.Return(value=value):
+            return Return(expr=to_c_node(value, known_type=known_type))
+        case ast.Constant(value=value):
+            return Constant(type=None, value=str(value))
+        case ast.Name(id=id):
+            return ID(id)
+        case ast.Assign():
+            raise ValueError("all assignments must be type-annotated")
+        case ast.AnnAssign(target=ast.Name(id=id), value=value, annotation=annotation):
+            return Decl(
+                name=id,
                 quals=None,
                 align=None,
-                type=to_c_identifier_type(node.annotation),
-            ),
-            init=to_c_node(
-                node.value,
-                known_type=to_c_identifier_type(node.annotation),
-            ),
-            bitsize=None,
-        )
-    if isinstance(node, ast.FunctionDef):
-        return FuncDef(
-            decl=Decl(
-                name=node.name,
-                quals=None,
                 storage=None,
                 funcspec=None,
-                type=FuncDecl(
-                    args=ParamList(
-                        [
-                            Decl(
-                                name=arg.arg,
-                                quals=None,
-                                align=None,
-                                storage=None,
-                                funcspec=None,
-                                type=TypeDecl(
-                                    declname=arg.arg,
+                type=TypeDecl(
+                    declname=id,
+                    quals=None,
+                    align=None,
+                    type=to_c_identifier_type(annotation),
+                ),
+                init=to_c_node(value, to_c_identifier_type(annotation)),
+                bitsize=None,
+            )
+        case ast.AugAssign(op=op, target=target, value=value):
+            return Assignment(
+                op=to_c_bin_op(op) + "=",
+                lvalue=to_c_node(target),
+                rvalue=to_c_node(value),
+            )
+        case ast.BinOp(op=op, left=left, right=right):
+            return BinaryOp(
+                to_c_bin_op(op),
+                to_c_node(left),
+                to_c_node(right),
+            )
+        case ast.Subscript(value=value, slice=slice):
+            return ArrayRef(
+                name=to_c_node(value),
+                subscript=to_c_node(slice),
+            )
+        case ast.Call(func=func, args=args):
+            return FuncCall(
+                name=ID(name=func.id),
+                args=ExprList(exprs=map(to_c_node, args)),
+            )
+        case ast.IfExp(test=test, body=body, orelse=orelse):
+            return TernaryOp(
+                to_c_node(test),
+                to_c_node(body),
+                to_c_node(orelse),
+            )
+        case ast.If(test=test, body=body, orelse=orelse):
+            return If(
+                cond=to_c_node(test),
+                iftrue=to_c_node(body),
+                iffalse=to_c_node(orelse),
+            )
+        case ast.Tuple(elts=elts):
+            return CompoundLiteral(
+                type=known_type,
+                init=InitList(exprs=map(to_c_node, elts)),
+            )
+        case ast.FunctionDef(name=name, args=args, body=body, returns=returns):
+            return FuncDef(
+                decl=Decl(
+                    name=name,
+                    quals=None,
+                    storage=None,
+                    funcspec=None,
+                    type=FuncDecl(
+                        args=ParamList(
+                            (
+                                Decl(
+                                    name=n.arg,
                                     quals=None,
                                     align=None,
-                                    type=to_c_identifier_type(arg.annotation),
-                                ),
-                                init=None,
-                                bitsize=None,
+                                    storage=None,
+                                    funcspec=None,
+                                    type=TypeDecl(
+                                        declname=n.arg,
+                                        quals=None,
+                                        align=None,
+                                        type=to_c_identifier_type(n.annotation),
+                                    ),
+                                    init=None,
+                                    bitsize=None,
+                                )
+                                for n in args.args
                             )
-                            for arg in node.args.args
-                        ]
-                    ),
-                    type=TypeDecl(
-                        declname=node.name,
-                        quals=None,
-                        type=to_c_identifier_type(node.returns),
-                        align=None,
-                    ),
-                ),
-                init=None,
-                bitsize=None,
-                align=None,
-            ),
-            param_decls=None,
-            body=Compound(
-                block_items=(
-                    (
-                        to_c_node(n, known_type=to_c_identifier_type(node.returns))
-                        for n in node.body
-                    )
-                )
-            ),
-        )
-    if isinstance(node, ast.For):
-        i0, i1, di = to_c_range_args(node.iter)
-        counter = node.target.id
-        return For(
-            init=DeclList(
-                decls=[
-                    Decl(
-                        name=counter,
-                        quals=None,
-                        align=None,
-                        storage=None,
-                        funcspec=None,
+                        ),
                         type=TypeDecl(
-                            declname=counter,
+                            declname=name,
+                            quals=None,
+                            type=to_c_identifier_type(returns),
+                            align=None,
+                        ),
+                    ),
+                    init=None,
+                    bitsize=None,
+                    align=None,
+                ),
+                param_decls=None,
+                body=Compound(block_items=map(to_c_node, body)),
+            )
+        case ast.For(target=target, iter=iter, body=body):
+            i0, i1, di = to_c_range_args(iter)
+            counter = target.id
+            return For(
+                init=DeclList(
+                    decls=[
+                        Decl(
+                            name=counter,
                             quals=None,
                             align=None,
-                            type=IdentifierType(names=["int"]),
-                        ),
-                        init=i0,
-                        bitsize=None,
-                    )
-                ]
-            ),
-            cond=BinaryOp(
-                op="<",
-                left=ID(name=counter),
-                right=i1,
-            ),
-            next=Assignment(
-                op="+=",
-                lvalue=ID(name=counter),
-                rvalue=di,
-            ),
-            stmt=Compound(block_items=map(to_c_node, node.body)),
-        )
-    raise UnsupportedConstruct(f"unsupported construct: {node} at line {node.lineno}")
+                            storage=None,
+                            funcspec=None,
+                            type=TypeDecl(
+                                declname=counter,
+                                quals=None,
+                                align=None,
+                                type=IdentifierType(names=["int"]),
+                            ),
+                            init=i0,
+                            bitsize=None,
+                        )
+                    ]
+                ),
+                cond=BinaryOp(
+                    op="<",
+                    left=ID(name=counter),
+                    right=i1,
+                ),
+                next=Assignment(
+                    op="+=",
+                    lvalue=ID(name=counter),
+                    rvalue=di,
+                ),
+                stmt=to_c_node(body),
+            )
+        case _:
+            raise UnsupportedConstruct(
+                f"unsupported construct: {node} at line {node.lineno}"
+            )
 
 
 def emit_c_ast(filename):
@@ -256,7 +247,9 @@ if __name__ == "__main__":
         res = str()
         for c_node in emit_c_ast(filename):
             res += generator.visit(to_c_node(c_node))
-        # uncomment for subsequent processing with clang-format
-        # print(res.replace("\n", str()))
+        # remove newlines; good styling if processed through clang-format
+        print(res.replace("\n", str()))
+        # output the result from the C generator (not well styled)
+        # print(res)
     except UnsupportedConstruct as e:
         print(f"{e} of {filename}")
