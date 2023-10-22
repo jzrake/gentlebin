@@ -28,8 +28,7 @@ def to_c_identifier_type(t):
             return IdentifierType(names=["int"])
         case ast.Name(id="float"):
             return IdentifierType(names=["double"])
-        case _:
-            raise ValueError(f"unsupported type annotation: {t}")
+    raise ValueError(f"unsupported type annotation: {t}")
 
 
 def to_c_range_args(node):
@@ -38,14 +37,14 @@ def to_c_range_args(node):
     """
     match node:
         case ast.Call(func=ast.Name(id="range"), args=[i1]):
-            args = ast.Constant("0"), i1, ast.Constant("1")
+            ast.Constant("0"), i1, ast.Constant("1")
         case ast.Call(func=ast.Name(id="range"), args=[i0, i1]):
             args = i0, i1, ast.Constant("1")
         case ast.Call(func=ast.Name(id="range"), args=[i0, i1, di]):
             args = i0, i1, di
         case _:
             raise UnsupportedConstruct(
-                f"must be a range call at line {node.lineno} got {node}"
+                f"must be a valid range call at line {node.lineno} got {node}"
             )
     return map(to_c_node, args)
 
@@ -60,10 +59,7 @@ def to_c_bin_op(node):
             return "*"
         case ast.Div():
             return "/"
-        case _:
-            raise ValueError(
-                f"unsupported binary operation: {node} at line {node.lineno}"
-            )
+    raise ValueError(f"unsupported binary operation: {node} at line {node.lineno}")
 
 
 def to_c_node(node, known_type=None, force_compound=False):
@@ -182,20 +178,19 @@ def to_c_node(node, known_type=None, force_compound=False):
                 param_decls=None,
                 body=Compound(block_items=map(to_c_node, body)),
             )
-        case ast.For(target=target, iter=iter, body=body):
+        case ast.For(target=ast.Name(id=counter_id), iter=iter, body=body):
             i0, i1, di = to_c_range_args(iter)
-            counter = target.id
             return For(
                 init=DeclList(
                     decls=[
                         Decl(
-                            name=counter,
+                            name=counter_id,
                             quals=None,
                             align=None,
                             storage=None,
                             funcspec=None,
                             type=TypeDecl(
-                                declname=counter,
+                                declname=counter_id,
                                 quals=None,
                                 align=None,
                                 type=IdentifierType(names=["int"]),
@@ -207,20 +202,17 @@ def to_c_node(node, known_type=None, force_compound=False):
                 ),
                 cond=BinaryOp(
                     op="<",
-                    left=ID(name=counter),
+                    left=ID(name=counter_id),
                     right=i1,
                 ),
                 next=Assignment(
                     op="+=",
-                    lvalue=ID(name=counter),
+                    lvalue=ID(name=counter_id),
                     rvalue=di,
                 ),
                 stmt=to_c_node(body),
             )
-        case _:
-            raise UnsupportedConstruct(
-                f"unsupported construct: {node} at line {node.lineno}"
-            )
+    raise UnsupportedConstruct(f"unsupported construct: {node} at line {node.lineno}")
 
 
 def emit_c_ast(filename):
