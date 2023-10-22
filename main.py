@@ -67,7 +67,10 @@ def to_c_node(node, known_type=None):
     if node is None:
         return None
     if type(node) is list:
-        return Compound(block_items=map(to_c_node, node))
+        if len(node) == 1:
+            return to_c_node(node[0])
+        else:
+            return Compound(block_items=map(to_c_node, node))
     if isinstance(node, ast.Assign):
         raise ValueError("all assignments must be type-annotated")
     if isinstance(node, ast.Return):
@@ -253,6 +256,7 @@ if __name__ == "__main__":
         res = str()
         for c_node in emit_c_ast(filename):
             res += generator.visit(to_c_node(c_node))
-        print(res)
+        # uncomment for subsequent processing with clang-format
+        # print(res.replace("\n", str()))
     except UnsupportedConstruct as e:
         print(f"{e} of {filename}")
