@@ -35,29 +35,34 @@ def to_c_range_args(node):
     """
     Return C AST nodes for start, stop, stride args of a range call
     """
-    if not isinstance(node, ast.Call) or node.func.id != "range":
-        raise UnsupportedConstruct(
-            f"must be a range call at line {node.lineno} got {node}"
-        )
-    if len(node.args) == 1:
-        args = ast.Constant("0"), node.args[0], ast.Constant("1")
-    if len(node.args) == 2:
-        args = node.args[0], node.args[1], ast.Constant("1")
-    if len(node.args) == 3:
-        args = node.args[0], node.args[1], node.args[2]
+    match node:
+        case ast.Call(func=ast.Name(id="range"), args=[i1]):
+            args = ast.Constant("0"), i1, ast.Constant("1")
+        case ast.Call(func=ast.Name(id="range"), args=[i0, i1]):
+            args = i0, i1, ast.Constant("1")
+        case ast.Call(func=ast.Name(id="range"), args=[i0, i1, di]):
+            args = i0, i1, di
+        case _:
+            raise UnsupportedConstruct(
+                f"must be a range call at line {node.lineno} got {node}"
+            )
     return map(to_c_node, args)
 
 
 def to_c_bin_op(node):
-    if isinstance(node, ast.Add):
-        return "+"
-    if isinstance(node, ast.Sub):
-        return "-"
-    if isinstance(node, ast.Mult):
-        return "*"
-    if isinstance(node, ast.Div):
-        return "/"
-    raise ValueError(f"unsupported binary operation: {node} at line {node.lineno}")
+    match node:
+        case ast.Add():
+            return "+"
+        case ast.Sub():
+            return "-"
+        case ast.Mult():
+            return "*"
+        case ast.Div():
+            return "/"
+        case _:
+            raise ValueError(
+                f"unsupported binary operation: {node} at line {node.lineno}"
+            )
 
 
 def to_c_node(node, known_type=None, force_compound=False):
