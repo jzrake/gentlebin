@@ -37,3 +37,7 @@ def if_statement(c: int) -> int:
         return 14
     else:
         return 15
+
+
+def simple_kernel(a: Array[float], i: int) -> float:
+    return a[i]

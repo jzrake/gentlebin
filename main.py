@@ -8,27 +8,28 @@ class UnsupportedConstruct(Exception):
 
 
 def to_c_identifier_type(t):
-    if isinstance(t, ast.Constant) and t.value is None or t is None:
-        return IdentifierType(names=["void"])
-    if isinstance(t, ast.Subscript) and isinstance(t.slice, ast.Tuple):
-        return IdentifierType(names=["TUPLE"])
-    if isinstance(t, ast.Subscript) and t.value.id == "Array":
-        return PtrDecl(
-            quals=None,
-            type=TypeDecl(
-                declname=None,
+    match t:
+        case None | ast.Constant(value=None):
+            return IdentifierType(names=["void"])
+        case ast.Subscript(slice=ast.Tuple()):
+            # tuples are not actually supported yet in C code
+            return IdentifierType(names=["TUPLE"])
+        case ast.Subscript(slice=slice, value=ast.Name("Array")):
+            return PtrDecl(
                 quals=None,
-                align=None,
-                type=to_c_identifier_type(t.slice),
-            ),
-        )
-    if isinstance(t, ast.Name):
-        match t.id:
-            case "int":
-                return IdentifierType(names=["int"])
-            case "float":
-                return IdentifierType(names=["double"])
-    raise ValueError(f"unsupported type annotation: {t}")
+                type=TypeDecl(
+                    declname=None,
+                    quals=None,
+                    align=None,
+                    type=to_c_identifier_type(t.slice),
+                ),
+            )
+        case ast.Name(id="int"):
+            return IdentifierType(names=["int"])
+        case ast.Name(id="float"):
+            return IdentifierType(names=["double"])
+        case _:
+            raise ValueError(f"unsupported type annotation: {t}")
 
 
 def to_c_range_args(node):
