@@ -215,7 +215,10 @@ def to_c_node(node, known_type=None, force_compound=False):
     raise UnsupportedConstruct(f"unsupported construct: {node} at line {node.lineno}")
 
 
-def emit_c_ast(filename):
+def emit_py_ast(filename):
+    """
+    Iterates over function definition nodes found in a python source file
+    """
     with open(filename) as infile:
         node = ast.parse(infile.read())
         for n in node.body:
@@ -243,8 +246,8 @@ if __name__ == "__main__":
     try:
         generator = c_generator.CGenerator()
         res = str()
-        for c_node in emit_c_ast(filename):
-            res += generator.visit(to_c_node(c_node))
+        for node in emit_py_ast(filename):
+            res += generator.visit(to_c_node(node))
         # remove newlines; good styling if processed through clang-format
         print(res.replace("\n", str()))
         # output the result from the C generator (not well styled)
